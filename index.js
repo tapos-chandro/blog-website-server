@@ -3,7 +3,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 const cors = require("cors");
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 app.use(cors());
 app.use(express.json());
@@ -31,12 +31,29 @@ async function run() {
 run().catch(console.dir);
 
 const blogCollection = client.db("blog-website").collection("all-blogs");
+const commentsCollection = client.db("blog-website").collection('comments');
 
+
+// get details related api 
+app.get('/details/:id', async(req, res) => {
+  const id = req.params.id;
+  const filter = {_id: new ObjectId(id)};
+  const result = await blogCollection.findOne(filter);
+  res.send(result);
+})
+// get update related api 
+app.get('/update/:id', async(req, res) => {
+  const id = req.params.id;
+  const filter = {_id: new ObjectId(id)};
+  const result = await blogCollection.findOne(filter);
+  res.send(result);
+
+})
+
+// get blogs related api 
 app.get("/blogs", async (req, res) => {
   try {
     const search = req.query.searchText;
-    // const searchField = blogCollection.createIndex({title:"text"})
-
     let query = {}
 
     if(search){
@@ -51,6 +68,8 @@ app.get("/blogs", async (req, res) => {
   }
 });
 
+
+// get resent post related api 
 app.get("/resent-post", async (req, res) => {
   try {
     const options = {
@@ -63,6 +82,20 @@ app.get("/resent-post", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+app.get("/comment/:id", async(req, res) => {
+  try {
+    const id = req.params.id;
+    const query = {id: id}
+    const result = await commentsCollection.find(query).toArray();
+    res.send(result)
+  } catch (error) {
+    console.error("Error comment:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+})
+
+// post add blog related api 
 app.post("/add-blog", async (req, res) => {
   try {
     const blogData = req.body;
@@ -74,6 +107,31 @@ app.post("/add-blog", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+
+// post comment related api 
+app.post('/comment' , async(req, res) => {
+  try {
+    const commentData = req.body;
+    const result = await commentsCollection.insertOne(commentData)
+  } catch (error) {
+    console.error("Error comment:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+})
+
+app.patch('/update/:id', async(req, res) => {
+  try {
+    const id = req.params.id;
+    const updateData = req.body;
+    const filter = {_id: new ObjectId(id)}
+    const result = await blogCollection.replaceOne(filter, updateData)
+    res.send(result)
+  } catch (error) {
+    console.error("Error update blog:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+})
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
