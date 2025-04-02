@@ -32,6 +32,7 @@ run().catch(console.dir);
 
 const blogCollection = client.db("blog-website").collection("all-blogs");
 const commentsCollection = client.db("blog-website").collection('comments');
+const wishlistCollection = client.db("blog-website").collection('wishlist');
 
 
 // get details related api 
@@ -56,11 +57,15 @@ app.get("/blogs", async (req, res) => {
     const search = req.query.searchText;
     let query = {}
 
+    const options = {
+      projection: {  author: 0, email: 0 },
+    };
+
     if(search){
       query = { title: { $regex: search, $options: "i" } }
     }
 
-    const result = await blogCollection.find(query).toArray();
+    const result = await blogCollection.find(query, options).toArray();
     res.send(result);
   } catch (error) {
     console.error("Error all blogs:", error);
@@ -72,10 +77,14 @@ app.get("/blogs", async (req, res) => {
 // get resent post related api 
 app.get("/resent-post", async (req, res) => {
   try {
-    const options = {
+    const filter = {
       sort: { time: -1 },
     };
-    const result = await blogCollection.find({}, options).limit(6).toArray();
+    const options = {
+      projection: {  author: 0, email: 0 },
+    };
+
+    const result = await blogCollection.find({},options, filter).limit(6).toArray();
     res.send(result);
   } catch (error) {
     console.error("Error all resent post:", error);
@@ -120,6 +129,32 @@ app.post('/comment' , async(req, res) => {
   }
 })
 
+// wishlist related api
+app.post('/wishlist/:id', async(req, res ) => {
+  console.log(req.params.id)
+  try {
+    const id = req.params.id;
+    const wishlistData = req.body;
+    const filter = {id}
+    const findResult = await wishlistCollection.findOne(filter)
+    if(findResult){
+      console.log('sjlfjsl')
+     return res.send({message: "Already Added"})
+      
+    }else{
+      const result = await wishlistCollection.insertOne(wishlistData)
+      res.send(result)
+      console.log(result)
+    }
+
+
+  } catch (error) {
+    console.error("Error wishlist:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+})
+
+// update related api
 app.patch('/update/:id', async(req, res) => {
   try {
     const id = req.params.id;
