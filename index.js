@@ -7,12 +7,23 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const jwt = require('jsonwebtoken');
 const cookieParser = require("cookie-parser");
 
-app.use(cors(
-  {
-    origin: "http://localhost:5173", // Allow frontend origin
-    credentials: true,  // Allow cookies & auth headers
-  }
-));
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+};
+
+// Middleware
+app.use(cors({
+  origin: 
+
+    'https://blog-wibsite.netlify.app'
+  ,
+  credentials: true,
+  methods: ["GET", "POST", "PUT","PATCH", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -47,10 +58,7 @@ const wishlistCollection = client.db("blog-website").collection('wishlist');
 app.post('/jwt', async(req, res) => {
   const user = req.body;
   const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
-  res.cookie('token', token,{
-    httpOnly: true,
-    secure: false,
-  }).send({success: true})
+  res.cookie('token', token, cookieOptions).send({success: true})
 })
 
 
@@ -71,7 +79,7 @@ const verifyToken = (req, res, next) => {
 }
 
 app.post("/logout", (req, res) => {
-  res.clearCookie("token", { httpOnly: true, sameSite: "lax", secure: false });
+  res.clearCookie("token", {...cookieOptions, maxAge: 0});
   res.send({ message: "Logout successful" });
 });
 
@@ -84,7 +92,6 @@ app.get('/details/:id', verifyToken, async(req, res) => {
   if(!email){
     return res.status(403).send({message: "forbidden access"})
   }
-  console.log(req.user?.email)
   if(email !== req.user?.email){
     return res.status(403).send({message: 'forbidden access'})
   }
@@ -147,7 +154,7 @@ app.get("/resent-post", async (req, res) => {
 app.get("/comment/:id", verifyToken,  async(req, res) => {
   try {
     const id = req.params.id;
-    const email = req.query.email;
+    const email = req.query?.email;
     if(email !== req.user?.email){
       return res.status(403).send({message: 'forbidden access'})
     }
@@ -166,7 +173,7 @@ app.get("/comment/:id", verifyToken,  async(req, res) => {
 // wishlist related api 
 app.get("/wishlist", verifyToken,  async(req, res) => {
   try {
-    const email = req.query.email;
+    const email = req.query?.email;
 
     if(email !== req.user?.email){
       return res.status(403).send({message: 'forbidden access'})  
@@ -219,10 +226,9 @@ app.post("/add-blog", async (req, res) => {
 
 
 // post comment related api 
-app.post('/comment' , async(req, res) => {
+app.post('/comment' ,  async(req, res) => {
   try {
     const commentData = req.body;
-    const id = req.body.id;
     const result = await commentsCollection.insertOne(commentData)
     res.send(result)
   } catch (error) {
@@ -236,7 +242,7 @@ app.post('/wishlist/:id', async(req, res ) => {
   try {
     const id = req.params.id;
     const wishlistData = req.body;
-    const filter = {id}
+    const filter = {id, userEmail: wishlistData?.userEmail}
     const findResult = await wishlistCollection.findOne(filter)
     if(findResult){
      return res.send({message: "Already Added"})
@@ -268,9 +274,9 @@ app.patch('/update/:id', async(req, res) => {
 })
 
 app.patch('/comment/:id', async (req, res) => {
-  const id = req.params.id;
   
   try {
+    const id = req.params.id;
     const filter = { _id: new ObjectId(id) };
     const findResult = await blogCollection.findOne(filter);
     
